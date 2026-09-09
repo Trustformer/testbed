@@ -36,6 +36,8 @@
 
           profile = ''
             HOME=$(pwd)
+            # Lets scripts/cy detect that it is already inside the sandbox.
+            export CY_FHS=1
             export LD_LIBRARY_PATH=${libPath}
             if [ -f ~/conda/etc/profile.d/conda.sh ]; then
               source ~/conda/etc/profile.d/conda.sh

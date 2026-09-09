@@ -1,16 +1,65 @@
 #!/usr/bin/env bash
 # Run a command inside the chipyard build environment.
 #
-#   scripts/cy 'cd sims/verilator && make CONFIG=TFLockboxTriesConfig verilog'
+#   scripts/cy 'cd sims/verilator && make CONFIG=TFLockboxTriesConfig'
+#   scripts/cy make -C sims/verilator CONFIG=TFLockboxTriesConfig
 #
-# Wraps three things that are easy to get wrong:
-#   * the FHS sandbox must be entered as a *package* (`nix run .#fhs`), not with
-#     `nix develop --command` -- for a buildFHSEnv the latter silently runs nothing
-#     and exits 0;
-#   * it must be entered from the testbed root, because the FHS profile sets
-#     HOME=$(pwd) and that is where `conda` lives;
-#   * chipyard's env.sh must be sourced from the chipyard directory.
+# The environment is three layers: the FHS sandbox from flake.nix, the conda
+# environment installed inside it, and chipyard's env.sh.
 set -euo pipefail
+
 TESTBED="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FHS_LINK="$TESTBED/.cy-fhs"
+FHS_STAMP="$TESTBED/.cy-fhs.stamp"
+
+if [ $# -eq 0 ]; then
+    echo "usage: ${0##*/} <command>" >&2
+    exit 2
+fi
+
+# One argument is taken as a ready-made shell command; several are quoted and
+# joined, so both calling styles above behave the same.
+if [ $# -eq 1 ]; then
+    COMMAND=$1
+else
+    COMMAND=$(printf '%q ' "$@")
+fi
+
+if [ ! -e "$TESTBED/chipyard/env.sh" ]; then
+    echo "error: $TESTBED/chipyard/env.sh is missing -- run the first-time setup in README.md" >&2
+    exit 1
+fi
+
+INNER="set -e; cd \"\$CY_TESTBED/chipyard\"; source ./env.sh; $COMMAND"
+
+# Already inside the sandbox (nested call, or an interactive `nix develop`): run
+# directly instead of starting a second one.
+if [ "${CY_FHS:-}" = 1 ]; then
+    exec env CY_TESTBED="$TESTBED" bash -c "$INNER"
+fi
+
+# The sandbox is built once and kept as a gc root, so the usual call costs nothing
+# and does not need nix at all. Evaluating the flake on every call would be both
+# slow and fragile: nix copies the flake's directory into the store, and whether
+# `conda/`, `.conda-env/` and the chipyard submodule are excluded depends on the
+# testbed being a git repository.
+if [ "${CY_REBUILD:-}" = 1 ] ||
+   [ ! -x "$FHS_LINK/bin/chipyard-fhs" ] ||
+   [ "$TESTBED/flake.nix" -nt "$FHS_STAMP" ] ||
+   [ "$TESTBED/flake.lock" -nt "$FHS_STAMP" ]; then
+    if ! command -v nix >/dev/null; then
+        echo "error: nix is not on PATH and $FHS_LINK is not built; see README.md" >&2
+        exit 1
+    fi
+    echo "==> building the FHS sandbox (once)" >&2
+    nix --extra-experimental-features 'nix-command flakes' \
+        build --no-warn-dirty -o "$FHS_LINK" "$TESTBED#fhs"
+    # a stamp, because -nt on the symlink would follow it into the store, where
+    # every mtime is the epoch and the sandbox would look stale forever
+    touch "$FHS_STAMP"
+fi
+
+# The flake's profile sets HOME=$(pwd), which is where conda was installed, so the
+# sandbox has to be entered from the testbed root.
 cd "$TESTBED"
-exec nix run "$TESTBED#fhs" -- -c "set -e; cd '$TESTBED/chipyard'; source ./env.sh; $*"
+exec "$FHS_LINK/bin/chipyard-fhs" -c "export CY_TESTBED=\"$TESTBED\"; $INNER"

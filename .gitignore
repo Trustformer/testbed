@@ -4,3 +4,5 @@
 /.conda/
 /.cache/
 /.wget-hsts
+/.cy-fhs
+/.cy-fhs.stamp

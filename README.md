@@ -3,108 +3,112 @@
 Simulates a Rocket SoC with a Trustformer-generated module attached as an MMIO
 peripheral, under Verilator.
 
-Everything below has been run end to end on a clean machine; the commands are the
-ones that actually work, not the ones chipyard's documentation suggests.
+Requires `nix` with flakes enabled, on x86_64 Linux (chipyard's conda environment
+is `linux-64` only).
 
 ## First-time setup
 
-Two things differ from chipyard's own instructions, and both matter:
-
-* **Do not pull all submodules.** `scripts/init-minimal.sh` initializes only the
-  submodules the `chipyard` sbt project needs to compile, non-recursively and with
-  `--filter=blob:none`. That is 34 repositories and a 185 MB tree, against several
-  gigabytes for a full recursive init. The nested RTL (nvdla's hw, cva6's vsrc,
-  ara, VexiiRiscv, radiance's vortex) is only needed to *elaborate* configs we
-  never build.
-* **Do not skip build-setup step 10.** It is the only thing that installs
-  `firtool`, which is not in chipyard's conda lockfile and which `common.mk`
-  invokes by bare name. Steps 3 and 5 are needed too (`libfesvr`, `spike-dasm`,
-  libgloss's `htif_nano.specs`).
-
 ```bash
-# 1. curated submodule init (~2 min)
+# 1. Initialize the submodules the build needs (~2 min, 185 MB).
 ./scripts/init-minimal.sh
 
-# 2. conda, into the testbed directory (the FHS shell sets HOME=$(pwd))
+# 2. Install conda into the testbed directory.
 nix run .#fhs -- -c '
   wget -q "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh" -O Miniforge3.sh
   bash Miniforge3.sh -b -p $HOME/conda'
 
-# 3. chipyard setup: conda env, toolchain collateral, scala precompile, firtool
-#    (skip 2 -- done above; 4 ctags; 6/7 FireSim; 8/9 FireMarshal). ~40 min.
+# 3. Build the chipyard environment: conda packages, toolchain collateral
+#    (spike, libfesvr, libgloss), the Scala precompile, and firtool. (~40 min)
 nix run .#fhs -- -c 'cd chipyard && ./build-setup.sh riscv-tools -s 2 -s 4 -s 6 -s 7 -s 8 -s 9'
-```
 
-Sanity check:
-
-```bash
+# 4. Check the result.
 ./scripts/cy 'firtool --version | head -1; verilator --version; ls $RISCV/lib/libfesvr.a'
 ```
 
-## Running things
+`scripts/init-minimal.sh` initializes only the submodules the `chipyard` sbt project
+needs in order to compile, non-recursively and with `--filter=blob:none`: 34
+repositories and a 185 MB tree. The nested RTL of the other generators (nvdla's hw,
+cva6's vsrc, ara, VexiiRiscv, radiance's vortex) is only read when *elaborating*
+those generators' configs, which this testbed never does.
 
-`scripts/cy` runs a command inside the chipyard environment (FHS sandbox + conda +
-`env.sh`). Use it for everything; `nix develop --command <cmd>` **silently does
-nothing** for an FHS shell — the shellHook execs the sandbox and drops the command,
-then exits 0.
+The `-s` flags in step 3 drop the submodule init (step 1 above did it), ctags,
+FireSim and FireMarshal. The steps that run are the conda environment, the toolchain
+collateral, the Scala precompile and the firtool install — all four are load-bearing:
+the simulator links `libfesvr`, `common.mk` pipes disassembly through `spike-dasm`,
+`tests/` compiles against libgloss's `htif_nano.specs`, and `common.mk` invokes
+`firtool` by bare name. `firtool` is not part of the conda environment; it comes from
+step 10 of `build-setup.sh`.
+
+## Running a simulation
+
+`scripts/cy` runs a command inside the chipyard environment (the FHS sandbox, conda,
+and `chipyard/env.sh`) and is how everything here should be invoked.
 
 ```bash
-# build the bare-metal test binaries
+# Bare-metal test binaries.
 ./scripts/cy 'cd tests && cmake -S ./ -B ./build/ -D CMAKE_BUILD_TYPE=Debug && cmake --build ./build/ --target all'
 
-# build the simulator and run one binary on it
+# The simulator for one config.
 ./scripts/cy 'cd sims/verilator && make -j$(nproc) CONFIG=TFLockboxTriesConfig'
+
+# Run a binary on it.
 ./scripts/cy 'cd sims/verilator && make CONFIG=TFLockboxTriesConfig BINARY=$PWD/../../tests/build/lockbox.riscv run-binary'
 
-# same, with a VCD (needs its own simulator build)
+# Same, but building a simulator that writes a VCD.
 ./scripts/cy 'cd sims/verilator && make CONFIG=TFLockboxTriesConfig BINARY=$PWD/../../tests/build/lockbox.riscv run-binary-debug'
 ```
 
-`TFLockboxTriesConfig` is the paper's running example
-(`coq/Examples/LockboxTries.v`) at `0x4000` next to one Rocket core;
-`tests/lockbox.c` replays that file's `Example`s over MMIO and self-checks.
-
-> **Config names must not contain `_`.** chipyard splits `CONFIG` on `_` to stack
-> config fragments, so `TFExample_LockboxTriesConfig` is looked up as `TFExample`
-> ++ `LockboxTriesConfig` and dies with `ClassNotFoundException`. The module and
-> the wrapper may keep the underscore; the config class may not.
+`TFLockboxTriesConfig` is the paper's running example (`coq/Examples/LockboxTries.v`)
+at address `0x4000` next to one Rocket core. `tests/lockbox.c` drives it over MMIO,
+replaying the `Example`s from that Coq file and checking each result.
 
 ## Integrating a Trustformer-generated module
 
-The wire protocol these modules speak is documented in
-`chipyard-trustformer-module/INTERFACE.md` — read it before touching the wrapper.
+The wire protocol these modules speak is in
+`chipyard-trustformer-module/INTERFACE.md`; read it before touching a wrapper.
 
 1. Copy the generated Verilog into
    `chipyard-trustformer-module/src/main/resources/vsrc/`. The file name must match
-   the module name inside it.
-2. Optionally pin the register addresses in
-   `chipyard-trustformer-module/src/main/resources/regmap/<Module>.json`; anything
-   you leave out is assigned the next free 4-byte slot. Keys are the
+   the module name declared inside it, so the `BlackBox` resource resolves.
+2. Generate the wrapper:
+   ```bash
+   ./scripts/cy 'cd generators/trustformer && python3 GenerateWrappers.py'
+   ```
+   This writes `src/main/scala/<Module>Wrapper.scala` and records the register
+   addresses it chose in `src/main/resources/regmap/<Module>.json`. To pin an address
+   yourself, put it in that JSON before running the generator; keys are the
    external-function names (`in_cmd`, `in_param_<x>`, `out_param_<y>`) plus
-   `<status>`.
-3. `./scripts/cy 'cd generators/trustformer && python3 GenerateWrappers.py'`
-4. Mix `trustformer.CanHavePeriphery<Module>` into
-   `chipyard/generators/chipyard/src/main/scala/DigitalTop.scala`.
-5. Add a config (no `_` in the class name) to
-   `chipyard/generators/chipyard/src/main/scala/config/TrustformerConfigs.scala`:
+   `<status>`. Values wider than 32 bits occupy several consecutive 4-byte words.
+3. Mix the peripheral into
+   `chipyard/generators/chipyard/src/main/scala/DigitalTop.scala`:
+   ```scala
+   with trustformer.CanHavePeriphery<Module>
+   ```
+4. Add a config to
+   `chipyard/generators/chipyard/src/main/scala/config/TrustformerConfigs.scala`.
+   The config class name must not contain an underscore: chipyard splits `CONFIG` on
+   `_` to stack config fragments, so `TFExample_FooConfig` is resolved as `TFExample`
+   ++ `FooConfig`. The module, the wrapper class and the `CanHavePeriphery*` trait
+   may all keep theirs.
    ```scala
    class TF<Name>Config extends Config(
      new trustformer.With<Module>(address=0x4000) ++
      new freechips.rocketchip.rocket.WithNHugeCores(1) ++
      new chipyard.config.AbstractConfig)
    ```
+5. Build and run it as above, with `CONFIG=TF<Name>Config`.
 
 ## Local deviations from upstream chipyard
 
-* `common.mk`: the include of `generators/radiance/radiance.mk` is guarded on the
-  presence of radiance's vortex submodule. That fragment unconditionally puts two
-  Vortex package sources on the Verilator command line, so *every* config fails to
-  build without a ~500 MB checkout that nothing in our designs uses.
+* `common.mk`: the include of `generators/radiance/radiance.mk` is guarded on
+  radiance's vortex submodule being present. That fragment puts two Vortex package
+  sources on the Verilator command line for every config, so without a ~500 MB
+  checkout that nothing in our designs uses, no config builds.
 
 ## Todo
 
 Figure out the VLSI flow with OpenROAD, to run a static timing analysis on the
 generated platform. That would give us a clock frequency for the design, a
-comparison against a baseline platform without the Trustformer module (showing we
-do not degrade the system clock), and — combined with the cycle counts — a
-performance estimate for the module.
+comparison against a baseline platform without the Trustformer module (showing we do
+not degrade the system clock), and — combined with the cycle counts — a performance
+estimate for the module.
