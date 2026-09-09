@@ -30,6 +30,35 @@ if [ ! -e "$TESTBED/chipyard/env.sh" ]; then
     exit 1
 fi
 
+# The conda installation and the chipyard environment bake their absolute paths in
+# and cannot be moved. Both are gitignored, so a copied -- rather than cloned --
+# checkout arrives with someone else's paths and fails deep inside conda with a
+# bare "No such file or directory".
+check_prefix() {
+    local what=$1 file=$2 baked=$3 want=$4
+    [ -n "$baked" ] && [ "$baked" != "$want" ] || return 0
+    cat >&2 <<ERR
+error: $what was set up for a different directory.
+         $file says   $baked
+         this checkout is $want
+conda installations and the chipyard environment are not relocatable, which is why
+they are gitignored rather than shared. Rebuild them here:
+    rm -rf "$TESTBED/conda" "$TESTBED/chipyard/.conda-env" "$TESTBED/chipyard/.conda-lock-env" "$TESTBED/chipyard/env.sh"
+then re-run the conda and build-setup.sh steps from README.md.
+ERR
+    exit 1
+}
+
+CONDA_SH="$TESTBED/conda/etc/profile.d/conda.sh"
+if [ -f "$CONDA_SH" ]; then
+    check_prefix "conda" "$CONDA_SH" \
+        "$(sed -n "s/^export _CONDA_ROOT='\\(.*\\)'$/\\1/p" "$CONDA_SH")" \
+        "$TESTBED/conda"
+fi
+check_prefix "chipyard" "$TESTBED/chipyard/env.sh" \
+    "$(sed -n "s/^CY_DIR=//p" "$TESTBED/chipyard/env.sh")" \
+    "$TESTBED/chipyard"
+
 INNER="
 set -e
 export CY_TESTBED=\"$TESTBED\"

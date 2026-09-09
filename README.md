@@ -8,6 +8,12 @@ is `linux-64` only).
 
 ## First-time setup
 
+Steps 2 and 3 build into the checkout and bake its absolute path into conda, into
+chipyard's `env.sh` and into the toolchain. They are gitignored rather than shared
+for that reason: run them once per clone, and do not copy a `conda/` or `.conda-env/`
+from another checkout or another machine. `scripts/cy` refuses to run against one
+that was set up elsewhere.
+
 ```bash
 # 1. Initialize the submodules the build needs (~2 min, 185 MB).
 ./scripts/init-minimal.sh
