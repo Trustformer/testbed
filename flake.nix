@@ -23,6 +23,15 @@
             fish
             zlib
             gtkwave
+
+            # Needed before the conda environment exists: build-setup.sh and the
+            # chipyard makefiles shell out to these before `conda activate`.
+            git
+            wget
+            curl
+            which
+            procps
+            gnumake
           ]);
 
           profile = ''
@@ -38,5 +47,14 @@
     in
     {
       devShells.${system}.default = fhs.env;
+
+      # `nix develop --command ...` does not work for an FHS env: the shellHook
+      # execs the sandbox and the command is dropped. Use this for non-interactive
+      # / scripted use instead:
+      #     nix run .#fhs -- -c 'command'
+      packages.${system} = {
+        fhs = fhs;
+        default = fhs;
+      };
     };
 }

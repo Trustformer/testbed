@@ -1,0 +1,6 @@
+# conda lives inside the testbed: the FHS shell sets HOME=$(pwd)
+/conda/
+/Miniforge3.sh
+/.conda/
+/.cache/
+/.wget-hsts

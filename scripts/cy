@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run a command inside the chipyard build environment.
+#
+#   scripts/cy 'cd sims/verilator && make CONFIG=TFLockboxTriesConfig verilog'
+#
+# Wraps three things that are easy to get wrong:
+#   * the FHS sandbox must be entered as a *package* (`nix run .#fhs`), not with
+#     `nix develop --command` -- for a buildFHSEnv the latter silently runs nothing
+#     and exits 0;
+#   * it must be entered from the testbed root, because the FHS profile sets
+#     HOME=$(pwd) and that is where `conda` lives;
+#   * chipyard's env.sh must be sourced from the chipyard directory.
+set -euo pipefail
+TESTBED="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$TESTBED"
+exec nix run "$TESTBED#fhs" -- -c "set -e; cd '$TESTBED/chipyard'; source ./env.sh; $*"
