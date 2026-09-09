@@ -35,13 +35,28 @@
           ]);
 
           profile = ''
-            HOME=$(pwd)
+            # conda lives in the testbed root, and chipyard finds it through HOME.
+            # Search upward from the working directory rather than assuming it is the
+            # root, so entering the sandbox from a subdirectory still works.
+            cy_root="$CY_TESTBED"
+            if [ -z "$cy_root" ]; then
+              cy_root=$(pwd)
+              while [ ! -d "$cy_root/conda" ] && [ "$cy_root" != / ]; do
+                cy_root=$(dirname "$cy_root")
+              done
+              [ -d "$cy_root/conda" ] || cy_root=$(pwd)
+            fi
+            export HOME="$cy_root"
+            unset cy_root
+
             # Lets scripts/cy detect that it is already inside the sandbox.
             export CY_FHS=1
             export LD_LIBRARY_PATH=${libPath}
-            if [ -f ~/conda/etc/profile.d/conda.sh ]; then
-              source ~/conda/etc/profile.d/conda.sh
+            if [ -f "$HOME/conda/etc/profile.d/conda.sh" ]; then
+              source "$HOME/conda/etc/profile.d/conda.sh"
               conda activate base
+            else
+              echo "note: no conda under $HOME/conda -- see README.md" >&2
             fi
           '';
 

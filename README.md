@@ -42,7 +42,16 @@ step 10 of `build-setup.sh`.
 ## Running a simulation
 
 `scripts/cy` runs a command inside the chipyard environment (the FHS sandbox, conda,
-and `chipyard/env.sh`) and is how everything here should be invoked.
+and `chipyard/env.sh`) and is how everything here should be invoked. It works from
+any directory and from inside an already-running sandbox.
+
+For an interactive shell, `nix develop` from anywhere inside the testbed gives the
+same environment except for `chipyard/env.sh`, which you source yourself:
+
+```bash
+nix develop
+cd chipyard && source ./env.sh
+```
 
 ```bash
 # Bare-metal test binaries.

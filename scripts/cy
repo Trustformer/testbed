@@ -30,12 +30,31 @@ if [ ! -e "$TESTBED/chipyard/env.sh" ]; then
     exit 1
 fi
 
-INNER="set -e; cd \"\$CY_TESTBED/chipyard\"; source ./env.sh; $COMMAND"
+INNER="
+set -e
+export CY_TESTBED=\"$TESTBED\"
+# Not inherited from the sandbox profile: it derives HOME from the working
+# directory, so a sandbox entered anywhere else has no conda. Pin it here so every
+# path through this script lands in the same environment.
+export HOME=\"$TESTBED\"
+if ! type conda >/dev/null 2>&1; then
+    if [ -f \"$TESTBED/conda/etc/profile.d/conda.sh\" ]; then
+        . \"$TESTBED/conda/etc/profile.d/conda.sh\"
+        conda activate base
+    else
+        echo \"error: no conda under $TESTBED/conda -- run the first-time setup in README.md\" >&2
+        exit 1
+    fi
+fi
+cd \"$TESTBED/chipyard\"
+source ./env.sh
+$COMMAND"
 
 # Already inside the sandbox (nested call, or an interactive `nix develop`): run
-# directly instead of starting a second one.
+# directly instead of starting a second one. The marker only says we are inside a
+# sandbox, not that its environment is usable -- INNER sets that up regardless.
 if [ "${CY_FHS:-}" = 1 ]; then
-    exec env CY_TESTBED="$TESTBED" bash -c "$INNER"
+    exec bash -c "$INNER"
 fi
 
 # The sandbox is built once and kept as a gc root, so the usual call costs nothing
@@ -62,4 +81,4 @@ fi
 # The flake's profile sets HOME=$(pwd), which is where conda was installed, so the
 # sandbox has to be entered from the testbed root.
 cd "$TESTBED"
-exec "$FHS_LINK/bin/chipyard-fhs" -c "export CY_TESTBED=\"$TESTBED\"; $INNER"
+exec "$FHS_LINK/bin/chipyard-fhs" -c "$INNER"
