@@ -77,6 +77,13 @@ cd chipyard && source ./env.sh
 at address `0x4000` next to one Rocket core. `tests/lockbox.c` drives it over MMIO,
 replaying the `Example`s from that Coq file and checking each result.
 
+`TFMarsConfig` is the one-action MARS (`coq/Examples/Mars/Spec.v`) at `0x4000`, with
+its SHA-256 and HMAC IPs, Primary Seed and init request in
+`chipyard-trustformer-module/src/main/scala/platform/Example_MarsPlatform.scala`.
+`tests/mars.c` replays `sim/tb_mars_v4.sv`'s sequence and checks the reference
+emulator's PCR and Quote values; run it as above with `CONFIG=TFMarsConfig` and
+`mars.riscv`.
+
 ## Integrating a Trustformer-generated module
 
 The wire protocol these modules speak is in
@@ -85,21 +92,24 @@ The wire protocol these modules speak is in
 1. Copy the generated Verilog into
    `chipyard-trustformer-module/src/main/resources/vsrc/`. The file name must match
    the module name declared inside it, so the `BlackBox` resource resolves.
-2. Generate the wrapper:
+2. If the module has `sec` ports or IP links, write its platform module, which
+   drives them: `chipyard-trustformer-module/src/main/scala/platform/<Module>Platform.scala`
+   (`INTERFACE.md`, "The platform module"). Only `pub` ports are memory-mapped.
+3. Generate the wrapper:
    ```bash
    ./scripts/cy 'cd generators/trustformer && python3 GenerateWrappers.py'
    ```
    This writes `src/main/scala/<Module>Wrapper.scala` and records the register
    addresses it chose in `src/main/resources/regmap/<Module>.json`. To pin an address
-   yourself, put it in that JSON before running the generator; keys are the
-   external-function names (`in_cmd`, `in_param_<x>`, `out_param_<y>`) plus
+   yourself, put it in that JSON before running the generator; keys are the names
+   of the `pub` ports (`in_cmd`, `in_param_pub_<x>`, `out_param_pub_<y>`) plus
    `<status>`. Values wider than 32 bits occupy several consecutive 4-byte words.
-3. Mix the peripheral into
+4. Mix the peripheral into
    `chipyard/generators/chipyard/src/main/scala/DigitalTop.scala`:
    ```scala
    with trustformer.CanHavePeriphery<Module>
    ```
-4. Add a config to
+5. Add a config to
    `chipyard/generators/chipyard/src/main/scala/config/TrustformerConfigs.scala`.
    The config class name must not contain an underscore: chipyard splits `CONFIG` on
    `_` to stack config fragments, so `TFExample_FooConfig` is resolved as `TFExample`
@@ -111,7 +121,7 @@ The wire protocol these modules speak is in
      new freechips.rocketchip.rocket.WithNHugeCores(1) ++
      new chipyard.config.AbstractConfig)
    ```
-5. Build and run it as above, with `CONFIG=TF<Name>Config`.
+6. Build and run it as above, with `CONFIG=TF<Name>Config`.
 
 ## Local deviations from upstream chipyard
 
