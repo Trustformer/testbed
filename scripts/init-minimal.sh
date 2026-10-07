@@ -2,7 +2,7 @@
 # Initialize only the chipyard submodules needed to compile the `chipyard` sbt
 # project and run a Verilator simulation of a Rocket + Trustformer-MMIO SoC.
 #
-# Rationale (see agents/firesim/PLAN.md F2):
+# Rationale:
 #   * generators/chipyard `.dependsOn` ~30 generator repos (build.sbt L156-170),
 #     so their *Scala* sources are needed to compile -- but their nested RTL /
 #     software submodules are elaboration-time inputs for configs we never build.
@@ -14,8 +14,12 @@
 #     hardfloat.dependsOn(midas_target_utils) = sims/firesim/sim/midas/targetutils.
 set -euo pipefail
 
-CYDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../chipyard" && pwd)"
-cd "$CYDIR"
+TESTBED="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# chipyard is itself a submodule of the testbed, empty in a fresh clone.
+echo "==> Initializing chipyard"
+git -C "$TESTBED" submodule update --init --filter=blob:none chipyard
+cd "$TESTBED/chipyard"
 
 MODULES=(
   generators/ara

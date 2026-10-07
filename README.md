@@ -28,7 +28,7 @@ nix run .#fhs -- -c '
 nix run .#fhs -- -c 'cd chipyard && ./build-setup.sh riscv-tools -s 2 -s 4 -s 6 -s 7 -s 8 -s 9'
 
 # 4. Check the result.
-./scripts/cy 'firtool --version | head -1; verilator --version; ls $RISCV/lib/libfesvr.a'
+./scripts/cy 'firtool --version | tail -1; verilator --version; ls $RISCV/lib/libfesvr.a'
 ```
 
 `scripts/init-minimal.sh` initializes only the submodules the `chipyard` sbt project
