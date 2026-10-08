@@ -20,6 +20,7 @@ TESTBED="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # empty in a fresh clone.
 echo "==> Initializing chipyard and mars"
 git -C "$TESTBED" submodule update --init --filter=blob:none chipyard mars
+git -C "$TESTBED/mars" submodule update --init --filter=blob:none third_party/mbedtls
 cd "$TESTBED/chipyard"
 
 MODULES=(

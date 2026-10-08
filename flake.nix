@@ -15,6 +15,17 @@
         pkgs.zlib # libz.so.1
       ];
 
+      # gcc + newlib-nano for TinyRocket-class cores (rv32imac, soft float); the conda
+      # toolchain ships only rv64 libraries, and nixpkgs' cached riscv32 one is ilp32d.
+      rv32 = import nixpkgs {
+        localSystem = system;
+        crossSystem = {
+          config = "riscv32-none-elf";
+          libc = "newlib-nano";
+          gcc = { arch = "rv32imac_zicsr"; abi = "ilp32"; };
+        };
+      };
+
       fhs = pkgs.buildFHSEnv {
           name = "chipyard-fhs";
 
@@ -32,7 +43,7 @@
             which
             procps
             gnumake
-          ]);
+          ]) ++ [ rv32.buildPackages.gcc ];
 
           profile = ''
             # conda lives in the testbed root, and chipyard finds it through HOME.
@@ -71,6 +82,7 @@
       #     nix run .#fhs -- -c 'command'
       packages.${system} = {
         fhs = fhs;
+        rv32-gcc = rv32.buildPackages.gcc;
         default = fhs;
       };
     };

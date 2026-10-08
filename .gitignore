@@ -6,3 +6,5 @@
 /.wget-hsts
 /.cy-fhs
 /.cy-fhs.stamp
+.rv32-libgloss/
+marsfw/build/

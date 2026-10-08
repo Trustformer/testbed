@@ -88,6 +88,9 @@ its SHA-256 and HMAC IPs, Primary Seed and init request in
 emulator's PCR and Quote values; run it as above with `CONFIG=TFMarsConfig` and
 `mars.riscv`.
 
+`marsfw/` compares MarsV2 with the firmware MARS on the same SoC (`scripts/mars-fw.sh`,
+see `marsfw/README.md`).
+
 `TFMarsV2Config` is MarsV2 (`coq/Examples/MarsV2/Spec.v`): nine of the thirteen MARS
 commands, with the fault input tied low in `Example_MarsV2Platform.scala`.
 `tests/mars_v2.c` replays `sim/tb_mars_v2.sv`'s sequence over MMIO (69 checks) and
