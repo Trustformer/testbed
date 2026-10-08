@@ -3,6 +3,10 @@
 Simulates a Rocket SoC with a Trustformer-generated module attached as an MMIO
 peripheral, under Verilator.
 
+`mars/` is the Trustformer fork of the TCG MARS reference emulator
+(github.com/Trustformer/MARS, forked from TrustedComputingGroup at `63a59be`), the
+source of the firmware MARS that runs on the Rocket core.
+
 Requires `nix` with flakes enabled, on x86_64 Linux (chipyard's conda environment
 is `linux-64` only).
 

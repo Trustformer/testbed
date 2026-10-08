@@ -16,9 +16,10 @@ set -euo pipefail
 
 TESTBED="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# chipyard is itself a submodule of the testbed, empty in a fresh clone.
-echo "==> Initializing chipyard"
-git -C "$TESTBED" submodule update --init --filter=blob:none chipyard
+# chipyard and mars (the TCG MARS emulator) are submodules of the testbed,
+# empty in a fresh clone.
+echo "==> Initializing chipyard and mars"
+git -C "$TESTBED" submodule update --init --filter=blob:none chipyard mars
 cd "$TESTBED/chipyard"
 
 MODULES=(

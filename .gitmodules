@@ -1,3 +1,6 @@
 [submodule "chipyard"]
 	path = chipyard
 	url = https://github.com/Trustformer/chipyard.git
+[submodule "mars"]
+	path = mars
+	url = https://github.com/Trustformer/MARS.git
