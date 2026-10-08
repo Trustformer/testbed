@@ -84,6 +84,15 @@ its SHA-256 and HMAC IPs, Primary Seed and init request in
 emulator's PCR and Quote values; run it as above with `CONFIG=TFMarsConfig` and
 `mars.riscv`.
 
+`TFMarsV2Config` is MarsV2 (`coq/Examples/MarsV2/Spec.v`): nine of the thirteen MARS
+commands, with the fault input tied low in `Example_MarsV2Platform.scala`.
+`tests/mars_v2.c` replays `sim/tb_mars_v2.sv`'s sequence over MMIO (69 checks) and
+prints each command's core cycles. `LOADMEM=1` loads the ELF straight into DRAM:
+
+```bash
+./scripts/cy 'cd sims/verilator && make CONFIG=TFMarsV2Config BINARY=$PWD/../../tests/build/mars_v2.riscv LOADMEM=1 run-binary-fast'
+```
+
 ## Integrating a Trustformer-generated module
 
 The wire protocol these modules speak is in
