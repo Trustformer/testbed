@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # The firmware MARS (mars/) against the MarsV2 hardware, on the SoC simulators.
 #
+#   scripts/mars-fw.sh build                          both simulators, every variant's firmware
 #   scripts/mars-fw.sh perf [variant ...]             -> marsfw/results/perf.{csv,md}
 #   scripts/mars-fw.sh fuzz <variant> <seed> <count>  -> marsfw/results/fuzz-<variant>-s<seed>-n<count>.log
 #
 # Variants (marsfw/Makefile): huge-core huge-core-gate huge-testbed tiny tiny-gate;
-# perf defaults to all of them.  Each run builds what is missing (the simulator,
-# the program) and runs one simulator per variant, without a cycle limit.  The
-# tiny variants need scripts/build-rv32-libgloss.sh once.
+# perf defaults to all of them.  Each run builds what is missing and runs one
+# simulator, without a cycle limit.  Run build once before starting runs in parallel.
 set -euo pipefail
 
 TESTBED="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,11 +26,21 @@ run() {
     "$CY" "make -C ../marsfw ${*:3} $2" >&2
     "$CY" "cd sims/verilator && make -j\$(nproc) CONFIG=$cfg" >&2
     "$CY" "cd sims/verilator && make CONFIG=$cfg BINARY=$TESTBED/marsfw/$2 $(loadmem "$1") \
-           TIMEOUT_CYCLES=0 BREAK_SIM_PREREQ=1 run-binary-fast" >&2
-    echo "$TESTBED/chipyard/sims/verilator/output/chipyard.harness.TestHarness.$cfg/$(basename "$2" .riscv).log"
+           TIMEOUT_CYCLES=0 EXTRA_SIM_OUT_NAME=$1 BREAK_SIM_PREREQ=1 run-binary-fast" >&2 || true
+    echo "$TESTBED/chipyard/sims/verilator/output/chipyard.harness.TestHarness.$cfg/$(basename "$2" .riscv).$1.log"
 }
 
 case ${1:-} in
+build)
+    [ -d "$TESTBED/.rv32-libgloss/lib" ] || "$CY" ../scripts/build-rv32-libgloss.sh >&2
+    for cfg in TFMarsV2Config TFMarsV2TinyConfig; do
+        "$CY" "cd sims/verilator && make -j\$(nproc) CONFIG=$cfg" >&2
+    done
+    for v in $ALL; do
+        "$CY" "make -C ../marsfw build/$v/libmarsfw.a build/$v/perf-r7.riscv" >&2
+    done
+    echo "built: TFMarsV2Config, TFMarsV2TinyConfig, and the firmware for $ALL"
+    ;;
 perf)
     shift
     variants=${*:-$ALL}
@@ -58,7 +68,7 @@ fuzz)
     pre=$((20 + seed % 6))
     log=$(run "$v" "build/$v/fuzz-s$seed-n$count-p$pre.riscv" SEED="$seed" COUNT="$count" PRE="$pre")
     cp "$log" "$OUT/fuzz-$v-s$seed-n$count.log"
-    grep -E '^(compared|MISMATCH|PASS|FAIL)' "$log"
+    grep -E '^(compared|MISMATCH|PASS|FAIL|gate:)|FAILED' "$log" || true
     grep -q '^PASS fuzz' "$log"
     ;;
 *)
