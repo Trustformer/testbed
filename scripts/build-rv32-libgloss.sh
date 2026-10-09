@@ -17,5 +17,7 @@ cd "$OUT/build"
     CC=riscv32-none-elf-gcc AR=riscv32-none-elf-ar \
     CFLAGS="-march=rv32imac_zicsr -mabi=ilp32 -mcmodel=medany -O2"
 make -j"$(nproc)"
-make install
+# The install checks that libdir is in gcc's default search path; the marsfw builds
+# pass it with -L and -specs instead.
+make install searchdirs="$OUT/lib"
 echo "==> libgloss-htif for RV32 in $OUT"
