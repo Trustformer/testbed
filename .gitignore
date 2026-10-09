@@ -8,3 +8,8 @@
 /.cy-fhs.stamp
 .rv32-libgloss/
 marsfw/build/
+/mars-overnight/
+/mars-overnight.prev/
+/.mars-overnight-setup.ok
+/.mars-overnight.lock
+marsfw/results/

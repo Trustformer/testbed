@@ -89,7 +89,8 @@ emulator's PCR and Quote values; run it as above with `CONFIG=TFMarsConfig` and
 `mars.riscv`.
 
 `marsfw/` compares MarsV2 with the firmware MARS on the same SoC (`scripts/mars-fw.sh`,
-see `marsfw/README.md`).
+see `marsfw/README.md`). `scripts/mars-overnight.sh` does the whole unattended run (first-time
+setup if needed, build, perf table, fuzz matrix) and writes `mars-overnight/summary.txt`.
 
 `TFMarsV2Config` is MarsV2 (`coq/Examples/MarsV2/Spec.v`): nine of the thirteen MARS
 commands, with the fault input tied low in `Example_MarsV2Platform.scala`.
