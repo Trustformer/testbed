@@ -83,6 +83,8 @@
       packages.${system} = {
         fhs = fhs;
         rv32-gcc = rv32.buildPackages.gcc;
+        # Python for marsfw/plot.py: nix shell .#plot -c python3 marsfw/plot.py
+        plot = pkgs.python3.withPackages (p: [ p.matplotlib ]);
         default = fhs;
       };
     };
