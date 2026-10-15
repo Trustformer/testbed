@@ -85,6 +85,28 @@
         rv32-gcc = rv32.buildPackages.gcc;
         # Python for marsfw/plot.py: nix shell .#plot -c python3 marsfw/plot.py
         plot = pkgs.python3.withPackages (p: [ p.matplotlib ]);
+        # Python for scripts/*.py: nix shell .#python -c scripts/<script>.py
+        python = pkgs.python3;
+        # Yosys and the SKY130 standard cells (OpenROAD's sky130hd copy) for scripts/mars-area.py
+        yosys = pkgs.yosys;
+        sky130hd-lib = pkgs.fetchurl {
+          url = "https://raw.githubusercontent.com/The-OpenROAD-Project/OpenROAD-flow-scripts/e5cc6e799f5ddf36e6bdf2d8c5db73373b88f52c/flow/platforms/sky130hd/lib/sky130_fd_sc_hd__tt_025C_1v80.lib";
+          hash = "sha256-7A4QZ6Nci/ILEeWNHorFMyYGfk2shKElzBuRejUY0Nk=";
+        };
+        # Every single-port SKY130 SRAM macro of the OpenRAM test chip, for scripts/mars-fw-area.py
+        sky130-sram-lefs = pkgs.linkFarm "sky130-sram-lefs" (map (m: {
+          name = "${m.name}.lef";
+          path = pkgs.fetchurl {
+            url = "https://raw.githubusercontent.com/VLSIDA/openram_testchip/e48c011f35f18e37880e75108e2d704b43842320/lef/${m.name}.lef";
+            inherit (m) hash;
+          };
+        }) [
+          { name = "sky130_sram_1kbyte_1rw_32x256_8";  hash = "sha256-yA1niHQJ1YxtIFdEZLmpKfUL22dgUmZmIQSMLFNCAXc="; }
+          { name = "sky130_sram_2kbyte_1rw_32x512_8";  hash = "sha256-kS2IUkyMEOtJ9BoH3cC9dOTlkCJSF1d6mHMsbgijdE0="; }
+          { name = "sky130_sram_4kbyte_1rw_32x1024_8"; hash = "sha256-P6mN3w2XjAp8ODpLuTFB+wmZiT4e0osfbKvjppcqdBc="; }
+          { name = "sky130_sram_4kbyte_1rw_64x512_8";  hash = "sha256-pOglGEhJJTFzK60YkwutzYNa1NtDGLQIFwTR3ErYS3w="; }
+          { name = "sky130_sram_8kbyte_1rw_64x1024_8"; hash = "sha256-A2Z8iwzW16eDJzEWSH4o+TWeRzc4WG8mdRYWf1ebidk="; }
+        ]);
         default = fhs;
       };
     };
